@@ -38,6 +38,7 @@ var client = &http.Client{}
 func doRequest(c *http.Client, req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := c.Do(req)
+	log.Printf("%s", debugResponse(resp))
 	return resp, err
 }
 
@@ -95,6 +96,15 @@ func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc ch
 			log.Fatal(err)
 		}
 		resp, err := doRequest(client, req)
+
+		// If provided url is already a stream, just save it
+		if isAudioStream(resp) {
+			resp.Body.Close()
+			recDuration := 12 * time.Hour
+			dlc <- &Download{urlStr, recDuration}
+			return
+		}
+
 		if err != nil {
 			log.Print(err)
 			time.Sleep(time.Duration(3) * time.Second)
@@ -152,6 +162,50 @@ func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc ch
 			log.Fatal("Not a valid media playlist")
 		}
 	}
+}
+
+func debugResponse(r *http.Response) string {
+	var request []string
+
+	request = append(request, "Headers:")
+
+	// Headers
+	for name, headers := range r.Header {
+		name = strings.ToLower(name)
+		for _, h := range headers {
+			request = append(request, fmt.Sprintf("%v: %v", name, h))
+		}
+	}
+
+	request = append(request, fmt.Sprintf("Status: %v", r.StatusCode))
+
+	return strings.Join(request, "\n")
+}
+
+func isAudioStream(r *http.Response) bool {
+	streams := []string{
+		"audio/aacp",
+		"audio/mpeg",
+	}
+	isStream := false
+
+	for name, headers := range r.Header {
+		name = strings.ToLower(name)
+		if name != "content-type" {
+			continue
+		}
+
+		for _, h := range headers {
+			h = strings.ToLower(h)
+			for _, stream := range streams {
+				if stream == h {
+					isStream = true
+				}
+			}
+		}
+	}
+
+	return isStream
 }
 
 func main() {
