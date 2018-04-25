@@ -1,17 +1,17 @@
 /*
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+   You should have received a copy of the GNU General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -42,7 +42,7 @@ func doRequest(c *http.Client, req *http.Request) (*http.Response, error) {
 }
 
 type Download struct {
-	URI string
+	URI           string
 	totalDuration time.Duration
 }
 
@@ -74,9 +74,9 @@ func downloadSegment(fn string, dlc chan *Download, recTime time.Duration) {
 		log.Printf("Downloaded %v\n", v.URI)
 		if recTime != 0 {
 			log.Printf("Recorded %v of %v\n", v.totalDuration, recTime)
-			} else {
-				log.Printf("Recorded %v\n", v.totalDuration)
-			}
+		} else {
+			log.Printf("Recorded %v\n", v.totalDuration)
+		}
 	}
 }
 
@@ -141,8 +141,8 @@ func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc ch
 				}
 			}
 			if mpl.Closed {
-					close(dlc)
-					return
+				close(dlc)
+				return
 			} else {
 				time.Sleep(time.Duration(int64(mpl.TargetDuration * 1000000000)))
 			}
