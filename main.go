@@ -29,18 +29,19 @@ import "github.com/golang/groupcache/lru"
 import "strings"
 import "github.com/kz26/m3u8"
 
-const VERSION = "1.0.5"
+const version = "1.0.5"
 
-var USER_AGENT string
+var userAgent string
 
 var client = &http.Client{}
 
 func doRequest(c *http.Client, req *http.Request) (*http.Response, error) {
-	req.Header.Set("User-Agent", USER_AGENT)
+	req.Header.Set("User-Agent", userAgent)
 	resp, err := c.Do(req)
 	return resp, err
 }
 
+// Download stores URI/duration to process
 type Download struct {
 	URI           string
 	totalDuration time.Duration
@@ -82,9 +83,9 @@ func downloadSegment(fn string, dlc chan *Download, recTime time.Duration) {
 
 func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc chan *Download) {
 	startTime := time.Now()
-	var recDuration time.Duration = 0
+	var recDuration time.Duration
 	cache := lru.New(1024)
-	playlistUrl, err := url.Parse(urlStr)
+	playlistURL, err := url.Parse(urlStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,12 +115,12 @@ func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc ch
 							log.Fatal(err)
 						}
 					} else {
-						msUrl, err := playlistUrl.Parse(v.URI)
+						msURL, err := playlistURL.Parse(v.URI)
 						if err != nil {
 							log.Print(err)
 							continue
 						}
-						msURI, err = url.QueryUnescape(msUrl.String())
+						msURI, err = url.QueryUnescape(msURL.String())
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -143,9 +144,10 @@ func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc ch
 			if mpl.Closed {
 				close(dlc)
 				return
-			} else {
-				time.Sleep(time.Duration(int64(mpl.TargetDuration * 1000000000)))
 			}
+
+			time.Sleep(time.Duration(int64(mpl.TargetDuration * 1000000000)))
+
 		} else {
 			log.Fatal("Not a valid media playlist")
 		}
@@ -156,10 +158,10 @@ func main() {
 
 	duration := flag.Duration("t", time.Duration(0), "Recording duration (0 == infinite)")
 	useLocalTime := flag.Bool("l", false, "Use local time to track duration instead of supplied metadata")
-	flag.StringVar(&USER_AGENT, "ua", fmt.Sprintf("gohls/%v", VERSION), "User-Agent for HTTP client")
+	flag.StringVar(&userAgent, "ua", fmt.Sprintf("gohls/%v", version), "User-Agent for HTTP client")
 	flag.Parse()
 
-	os.Stderr.Write([]byte(fmt.Sprintf("gohls %v - HTTP Live Streaming (HLS) downloader\n", VERSION)))
+	os.Stderr.Write([]byte(fmt.Sprintf("gohls %v - HTTP Live Streaming (HLS) downloader\n", version)))
 	os.Stderr.Write([]byte("Copyright (C) 2013-2014 Kevin Zhang. Licensed for use under the GNU GPL version 3.\n"))
 
 	if flag.NArg() < 2 {
