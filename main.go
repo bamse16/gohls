@@ -49,7 +49,8 @@ type Download struct {
 }
 
 func downloadSegment(fn string, dlc chan *Download, recTime time.Duration) {
-	out, err := os.Create(fn)
+	out, err := os.OpenFile(fn, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+
 	if err != nil {
 		log.Fatal(err)
 	}
