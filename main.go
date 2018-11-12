@@ -48,6 +48,11 @@ type Download struct {
 	totalDuration time.Duration
 }
 
+type stream struct {
+	URI       string
+	localFile string
+}
+
 func downloadSegment(fn string, dlc chan *Download) {
 	out, err := os.OpenFile(fn, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
@@ -82,8 +87,30 @@ func onDownload(v *Download, out *os.File) {
 	log.Printf("Downloaded %v. Recorded %v.\n", v.URI, v.totalDuration)
 }
 
-func downloadStream(urlStr string, fn string) {
-	req, err := http.NewRequest("GET", urlStr, nil)
+func downloadURI(v *stream, out *os.File) {
+	req, err := http.NewRequest("GET", v.URI, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resp, err := doRequest(client, req)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	if resp.StatusCode != 200 {
+		log.Printf("Received HTTP %v for %v\n", resp.StatusCode, v.URI)
+		return
+	}
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resp.Body.Close()
+	log.Printf("Downloaded %v.\n", v.URI)
+}
+
+func downloadStream(s *stream) {
+	req, err := http.NewRequest("GET", s.URI, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,13 +118,12 @@ func downloadStream(urlStr string, fn string) {
 	// If provided url is already a stream, just save it
 	if isAudioStream(resp) {
 		resp.Body.Close()
-		recDuration := 12 * time.Hour
-		out, err := os.OpenFile(fn, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+		out, err := os.OpenFile(s.localFile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		onDownload(&Download{urlStr, recDuration}, out)
+		downloadURI(s, out)
 	} else {
 		log.Fatal("URL not a stream")
 	}
@@ -242,5 +268,6 @@ func main() {
 		log.Fatal("Media playlist url must begin with http/https")
 	}
 
-	downloadStream(flag.Arg(0), flag.Arg(1))
+	s := stream{flag.Arg(0), flag.Arg(1)}
+	downloadStream(&s)
 }
