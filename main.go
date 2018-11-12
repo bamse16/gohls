@@ -82,6 +82,27 @@ func onDownload(v *Download, out *os.File) {
 	log.Printf("Downloaded %v. Recorded %v.\n", v.URI, v.totalDuration)
 }
 
+func downloadStream(urlStr string, fn string) {
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resp, err := doRequest(client, req)
+	// If provided url is already a stream, just save it
+	if isAudioStream(resp) {
+		resp.Body.Close()
+		recDuration := 12 * time.Hour
+		out, err := os.OpenFile(fn, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		onDownload(&Download{urlStr, recDuration}, out)
+	} else {
+		log.Fatal("URL not a stream")
+	}
+}
+
 func getPlaylist(urlStr string, useLocalTime bool, dlc chan *Download) {
 	startTime := time.Now()
 	var recDuration time.Duration
@@ -205,7 +226,6 @@ func isAudioStream(r *http.Response) bool {
 }
 
 func main() {
-	useLocalTime := flag.Bool("l", false, "Use local time to track duration instead of supplied metadata")
 	flag.StringVar(&userAgent, "ua", fmt.Sprintf("gohls/%v", version), "User-Agent for HTTP client")
 	flag.Parse()
 
@@ -222,7 +242,5 @@ func main() {
 		log.Fatal("Media playlist url must begin with http/https")
 	}
 
-	msChan := make(chan *Download, 1024)
-	go getPlaylist(flag.Arg(0), *useLocalTime, msChan)
-	downloadSegment(flag.Arg(1), msChan)
+	downloadStream(flag.Arg(0), flag.Arg(1))
 }
