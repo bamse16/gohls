@@ -111,6 +111,11 @@ func downloadURI(v *stream, out *os.File) {
 }
 
 func downloadStream(s *stream) {
+	if downloadInProgress(s.localFile) {
+		log.Printf("Download in progress for %v.\n", s)
+		return
+	}
+
 	out, err := os.OpenFile(s.localFile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatal(err)
@@ -160,6 +165,26 @@ func downloadStream(s *stream) {
 			time.Sleep(sleepInterval)
 		}
 	}
+}
+
+func downloadInProgress(fn string) bool {
+	inProgress := false
+
+	info, err := os.Stat(fn)
+	if os.IsNotExist(err) {
+		return inProgress
+	}
+	if err != nil {
+		log.Printf("Could not get stats for %v. %v", fn, err)
+		return inProgress
+	}
+
+	delta := time.Now().Sub(info.ModTime())
+	inProgress = delta < time.Duration(5)*time.Minute
+
+	log.Printf("File %v modified %v ago.\n", fn, delta)
+
+	return inProgress
 }
 
 func getPlaylist(urlStr string, useLocalTime bool, dlc chan *Download) {
