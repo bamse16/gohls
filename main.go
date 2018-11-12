@@ -180,9 +180,11 @@ func downloadInProgress(fn string) bool {
 	}
 
 	delta := time.Now().Sub(info.ModTime())
-	inProgress = delta < time.Duration(5)*time.Minute
+	justUpdated := delta < time.Duration(5)*time.Minute
+	notEmpty := info.Size() > 0
+	inProgress = justUpdated && notEmpty
 
-	log.Printf("File %v modified %v ago.\n", fn, delta)
+	log.Printf("File %v modified %v ago. Size: %v.\n", fn, delta, info.Size())
 
 	return inProgress
 }
