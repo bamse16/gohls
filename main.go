@@ -56,30 +56,34 @@ func downloadSegment(fn string, dlc chan *Download, recTime time.Duration) {
 	}
 	defer out.Close()
 	for v := range dlc {
-		req, err := http.NewRequest("GET", v.URI, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-		resp, err := doRequest(client, req)
-		if err != nil {
-			log.Print(err)
-			continue
-		}
-		if resp.StatusCode != 200 {
-			log.Printf("Received HTTP %v for %v\n", resp.StatusCode, v.URI)
-			continue
-		}
-		_, err = io.Copy(out, resp.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-		resp.Body.Close()
-		log.Printf("Downloaded %v\n", v.URI)
-		if recTime != 0 {
-			log.Printf("Recorded %v of %v\n", v.totalDuration, recTime)
-		} else {
-			log.Printf("Recorded %v\n", v.totalDuration)
-		}
+		onDownload(v, out, recTime)
+	}
+}
+
+func onDownload(v *Download, out *os.File, recTime time.Duration) {
+	req, err := http.NewRequest("GET", v.URI, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resp, err := doRequest(client, req)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	if resp.StatusCode != 200 {
+		log.Printf("Received HTTP %v for %v\n", resp.StatusCode, v.URI)
+		return
+	}
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resp.Body.Close()
+	log.Printf("Downloaded %v\n", v.URI)
+	if recTime != 0 {
+		log.Printf("Recorded %v of %v\n", v.totalDuration, recTime)
+	} else {
+		log.Printf("Recorded %v\n", v.totalDuration)
 	}
 }
 
