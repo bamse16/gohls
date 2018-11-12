@@ -29,7 +29,7 @@ import "github.com/golang/groupcache/lru"
 import "strings"
 import "github.com/kz26/m3u8"
 
-const version = "1.0.5"
+const version = "1.1.0"
 
 var userAgent string
 
