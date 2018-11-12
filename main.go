@@ -38,7 +38,6 @@ var client = &http.Client{}
 func doRequest(c *http.Client, req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := c.Do(req)
-	log.Printf("%s", debugResponse(resp))
 	return resp, err
 }
 
@@ -93,39 +92,73 @@ func downloadURI(v *stream, out *os.File) {
 		log.Fatal(err)
 	}
 	resp, err := doRequest(client, req)
+	defer resp.Body.Close()
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	if resp.StatusCode != 200 {
-		log.Printf("Received HTTP %v for %v\n", resp.StatusCode, v.URI)
+		log.Printf("Received HTTP %v for %v.\n", resp.StatusCode, v.URI)
 		return
 	}
-	_, err = io.Copy(out, resp.Body)
+	log.Printf("Downloading %v to %v.\n", v.URI, v.localFile)
+	written, err := io.Copy(out, resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
-	resp.Body.Close()
-	log.Printf("Downloaded %v.\n", v.URI)
+
+	log.Printf("Downloaded %v kb from %v.\n", written/1000, v.URI)
 }
 
 func downloadStream(s *stream) {
-	req, err := http.NewRequest("GET", s.URI, nil)
+	out, err := os.OpenFile(s.localFile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
-	resp, err := doRequest(client, req)
-	// If provided url is already a stream, just save it
-	if isAudioStream(resp) {
-		resp.Body.Close()
-		out, err := os.OpenFile(s.localFile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
+
+	shouldWait := false
+	shortSleepInterval := time.Duration(1) * time.Second
+	longSleepInterval := time.Duration(10) * time.Second
+
+	shortTicks := 0
+	longTicks := 0
+
+	maxTicks := 30
+
+	for {
+		req, err := http.NewRequest("GET", s.URI, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
+		resp, err := doRequest(client, req)
+		defer resp.Body.Close()
 
-		downloadURI(s, out)
-	} else {
-		log.Fatal("URL not a stream")
+		// If provided url is already a stream, just save it
+		if isAudioStream(resp) {
+			shouldWait = true
+			shortTicks = 0
+			longTicks = 0
+			downloadURI(s, out)
+		} else {
+
+			sleepInterval := longSleepInterval
+			if shortTicks < maxTicks {
+				shortTicks = shortTicks + 1
+				sleepInterval = shortSleepInterval
+			} else if longTicks < maxTicks {
+				longTicks = longTicks + 1
+			} else {
+				break // Break after longTicks > maxTicks
+			}
+
+			if shouldWait {
+				log.Printf("Sleeping for %v.", sleepInterval)
+			} else {
+				log.Print("URL not a stream. Bailing.")
+				break
+			}
+			time.Sleep(sleepInterval)
+		}
 	}
 }
 
