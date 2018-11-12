@@ -48,7 +48,7 @@ type Download struct {
 	totalDuration time.Duration
 }
 
-func downloadSegment(fn string, dlc chan *Download, recTime time.Duration) {
+func downloadSegment(fn string, dlc chan *Download) {
 	out, err := os.OpenFile(fn, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 
 	if err != nil {
@@ -56,11 +56,11 @@ func downloadSegment(fn string, dlc chan *Download, recTime time.Duration) {
 	}
 	defer out.Close()
 	for v := range dlc {
-		onDownload(v, out, recTime)
+		onDownload(v, out)
 	}
 }
 
-func onDownload(v *Download, out *os.File, recTime time.Duration) {
+func onDownload(v *Download, out *os.File) {
 	req, err := http.NewRequest("GET", v.URI, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -79,15 +79,10 @@ func onDownload(v *Download, out *os.File, recTime time.Duration) {
 		log.Fatal(err)
 	}
 	resp.Body.Close()
-	log.Printf("Downloaded %v\n", v.URI)
-	if recTime != 0 {
-		log.Printf("Recorded %v of %v\n", v.totalDuration, recTime)
-	} else {
-		log.Printf("Recorded %v\n", v.totalDuration)
-	}
+	log.Printf("Downloaded %v. Recorded %v.\n", v.URI, v.totalDuration)
 }
 
-func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc chan *Download) {
+func getPlaylist(urlStr string, useLocalTime bool, dlc chan *Download) {
 	startTime := time.Now()
 	var recDuration time.Duration
 	cache := lru.New(1024)
@@ -150,10 +145,6 @@ func getPlaylist(urlStr string, recTime time.Duration, useLocalTime bool, dlc ch
 						}
 						dlc <- &Download{msURI, recDuration}
 					}
-					if recTime != 0 && recDuration != 0 && recDuration >= recTime {
-						close(dlc)
-						return
-					}
 				}
 			}
 			if mpl.Closed {
@@ -214,8 +205,6 @@ func isAudioStream(r *http.Response) bool {
 }
 
 func main() {
-
-	duration := flag.Duration("t", time.Duration(0), "Recording duration (0 == infinite)")
 	useLocalTime := flag.Bool("l", false, "Use local time to track duration instead of supplied metadata")
 	flag.StringVar(&userAgent, "ua", fmt.Sprintf("gohls/%v", version), "User-Agent for HTTP client")
 	flag.Parse()
@@ -234,6 +223,6 @@ func main() {
 	}
 
 	msChan := make(chan *Download, 1024)
-	go getPlaylist(flag.Arg(0), *duration, *useLocalTime, msChan)
-	downloadSegment(flag.Arg(1), msChan, *duration)
+	go getPlaylist(flag.Arg(0), *useLocalTime, msChan)
+	downloadSegment(flag.Arg(1), msChan)
 }
